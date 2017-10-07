@@ -11,7 +11,7 @@ if(SUUNTO_DURATION<1)
   k1=0;
   k2=0;
   err=0;
-  omega=0.005;
+  omega=0.02;
   slope=0;
   initialSpeed = SUUNTO_SPEED/3.6; 
   dist1=0;
