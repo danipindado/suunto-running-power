@@ -1,37 +1,84 @@
 /* While in sport mode do this once per second */
-/* vertical speed */
-verticalSpeed=verticalSpeed+((SUUNTO_VERTICAL_SPD-verticalSpeed)/smoothing);
-
-/* slope */
-speed = SUUNTO_SPEED/3.6;
-if(SUUNTO_SPEED < 1)
+if(SUUNTO_DURATION==0)
 {
-  slope = 0.0;
+  speed = 0;
+  slope=0;
+  power=0;
+  f3=SUUNTO_ALTI;
+  initialSpeed=SUUNTO_SPEED/3.6;
+  
+  xm3=0;
+  xm2=0.1;
+  xm1=0.2;
+  x0=0.3;
+  x1=0.4;
+  x2=0.5;
+  x3=0.6;
+  fm3=SUUNTO_ALTI;
+  fm2=SUUNTO_ALTI;
+  fm1=SUUNTO_ALTI;
+  f0=SUUNTO_ALTI;
+  f1=SUUNTO_ALTI;
+  f2=SUUNTO_ALTI;
+  f3=SUUNTO_ALTI;
+  slope=0;
+  
+  alti=SUUNTO_ALTI;
+  dist=0;
+  alpha=0.02;
+  
 }
 else 
 {
-  slope = 0.06 * verticalSpeed / SUUNTO_SPEED;
+
+  /*low pass filter upsampling*/
+  dist = alpha*1000*SUUNTO_DISTANCE+(1-alpha)*dist;
+  alti = alpha*SUUNTO_ALTI+(1-alpha)*alti;
+
+  xm3=xm2;
+  xm2=xm1;
+  xm1=x0;
+  x0=x1;
+  x1=x2;
+  x2=x3;
+  x3=dist;
+  fm3=fm2;
+  fm2=fm1;
+  fm1=f0;
+  f0=f1;
+  f1=f2;
+  f2=f3;
+  f3=alti;
+  
+  /*slope calculation using Smooth noise-robust differentiator by Pavel Holoborodko*/
+  slope = 5*2*(f1-fm1)/(x1-xm1);
+  slope = slope+4*4*(f2-fm2)/(x2-xm2);
+  slope = slope+1*6*(f3-fm3)/(x3-xm3);
+  slope = slope/32;
+  speed = SUUNTO_SPEED/3.6;
+  
+  /*Aero contribution (Arsac 2001): 0.5 * rho * Cd * Af * V^2, rho = 1.2, Cd = 0.9*/
+  Af = (0.2025*Suunto.pow(SUUNTO_USER_HEIGHT/100, 0.725)*Suunto.pow(SUUNTO_USER_WEIGHT, 0.425))*0.266; /* Frontal Area*/
+  cAero = 0.5*1.2*0.9*Af*Suunto.pow(speed, 2);
+
+  /* Kinetic Energy contribution (Arsac 2001): 0.5 * (V^2-V0^2) / d*/
+  if(SUUNTO_DISTANCE >0)
+  {
+    cKin = 0.5*(Suunto.pow(speed,2)-Suunto.pow(initialSpeed,2))/(1000*SUUNTO_DISTANCE);
+  }
+  else
+  {
+    cKin = 0.0;
+  }
+
+
+  /* Energy Cost of Running according to slope (Minetti 2002)*/
+  cSlope = 155.4*Suunto.pow(slope,5) - 30.4*Suunto.pow(slope,4) - 43.3*Suunto.pow(slope,3) + 46.3*Suunto.pow(slope,2) + 19.5*slope + 3.6;
+
+  /* Efficiency (Skiba's govss.pdf and spreadsheet)*/
+  eff = (0.25 + 0.054*speed)*(1 - 0.5*speed/8.33);
+
+  power=(cAero + cKin + cSlope*eff*SUUNTO_USER_WEIGHT)*speed;
 }
 
-/*Aero contribution (Arsac 2001): 0.5 * rho * Cd * Af * V^2, rho = 1.2, Cd = 0.9*/
-Af = (0.2025*Suunto.pow(SUUNTO_USER_HEIGHT/100, 0.725)*Suunto.pow(SUUNTO_USER_WEIGHT, 0.425))*0.266; /* Frontal Area*/
-cAero = 0.5*1.2*0.9*Af*Suunto.pow(speed, 2);
-
-/* Kinetic Energy contribution (Arsac 2001): 0.5 * (V^2-V0^2) / d*/
-if(SUUNTO_DISTANCE >0)
-{
-  cKin = 0.5*(Suunto.pow(speed,2)-Suunto.pow(0,2))/SUUNTO_DISTANCE;
-}
-else
-{
-  cKin = 0.0;
-}
-
-
-/* Energy Cost of Running according to slope (Minetti 2002)*/
-cSlope = 155.4*Suunto.pow(slope,5) - 30.4*Suunto.pow(slope,4) - 43.3*Suunto.pow(slope,3) + 46.3*Suunto.pow(slope,2) + 19.5*slope + 3.6;
-
-/* Efficiency (Skiba's govss.pdf and spreadsheet)*/
-eff = (0.25 + 0.054*speed)*(1 - 0.5*speed/8.33);
-
-RESULT = (cAero + cKin + cSlope*eff*SUUNTO_USER_WEIGHT)*speed;
+RESULT = power;
