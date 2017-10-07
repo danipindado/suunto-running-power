@@ -1,62 +1,63 @@
 /* While in sport mode do this once per second */
-if(SUUNTO_DURATION==0)
+/*before start: configure parameters, initialize*/
+if(SUUNTO_DURATION<1)
 {
-  speed = 0;
+  T=0;
+  x0p=SUUNTO_ALTI;
+  x0=SUUNTO_ALTI;
+  x1=0;
+  x2=0;
+  k0=0;
+  k1=0;
+  k2=0;
+  err=0;
+  omega=0.005;
   slope=0;
-  power=0;
-  f3=SUUNTO_ALTI;
-  initialSpeed=SUUNTO_SPEED/3.6;
+  initialSpeed = SUUNTO_SPEED/3.6; 
+  dist1=0;
+  RESULT=0;
   
-  xm3=0;
-  xm2=0.1;
-  xm1=0.2;
-  x0=0.3;
-  x1=0.4;
-  x2=0.5;
-  x3=0.6;
-  fm3=SUUNTO_ALTI;
-  fm2=SUUNTO_ALTI;
-  fm1=SUUNTO_ALTI;
-  f0=SUUNTO_ALTI;
-  f1=SUUNTO_ALTI;
-  f2=SUUNTO_ALTI;
-  f3=SUUNTO_ALTI;
-  slope=0;
-  
-  alti=SUUNTO_ALTI;
-  dist=0;
-  alpha=0.02;
-  
+
 }
 else 
 {
 
-  /*low pass filter upsampling*/
-  dist = alpha*1000*SUUNTO_DISTANCE+(1-alpha)*dist;
-  alti = alpha*SUUNTO_ALTI+(1-alpha)*alti;
-
-  xm3=xm2;
-  xm2=xm1;
-  xm1=x0;
-  x0=x1;
-  x1=x2;
-  x2=x3;
-  x3=dist;
-  fm3=fm2;
-  fm2=fm1;
-  fm1=f0;
-  f0=f1;
-  f1=f2;
-  f2=f3;
-  f3=alti;
+  /* slope calculation only if new distance data */
+  T=1000*SUUNTO_DISTANCE-dist1;
+  if(T > 0)
+  {
+    /*keep distance data for next iteration*/
+    dist1=1000*SUUNTO_DISTANCE;
   
-  /*slope calculation using Smooth noise-robust differentiator by Pavel Holoborodko*/
-  slope = 5*2*(f1-fm1)/(x1-xm1);
-  slope = slope+4*4*(f2-fm2)/(x2-xm2);
-  slope = slope+1*6*(f3-fm3)/(x3-xm3);
-  slope = slope/32;
+    /*abg filter http://www.plctalk.net/qanda/showthread.php?t=67883 http://deltamotion.com/peter/pdf/AlphaBetaGammaCode.pdf */
+    /*gains: MINIMUM IAE*/
+    k0=2.089582*T*omega;
+    k1=1.479222*T*Suunto.pow(omega, 2);
+    k2=T*Suunto.pow(omega, 3);
+  
+    /*calculate estimated position*/
+    x0p=(((0.5*x2*T)*T+x1)*T+x0);
+  
+    /*calculate error between actual and estimated*/
+    err=SUUNTO_ALTI-x0p;
+  
+    /*update position, velocity and acceleration*/
+    x0=x0p+k0*err;
+    x1=x1+(x2*T+k1*err);
+    x2=x2+k2*err;
+
+    /*slope is derivative of altitude with respect to distance*/
+    slope=x1;
+
+  }
+
+
+  /* 2D speed */
   speed = SUUNTO_SPEED/3.6;
   
+  /* 3D speed */
+  speed = speed/Suunto.cos(Suunto.atan2(slope,1));
+
   /*Aero contribution (Arsac 2001): 0.5 * rho * Cd * Af * V^2, rho = 1.2, Cd = 0.9*/
   Af = (0.2025*Suunto.pow(SUUNTO_USER_HEIGHT/100, 0.725)*Suunto.pow(SUUNTO_USER_WEIGHT, 0.425))*0.266; /* Frontal Area*/
   cAero = 0.5*1.2*0.9*Af*Suunto.pow(speed, 2);
@@ -73,12 +74,17 @@ else
 
 
   /* Energy Cost of Running according to slope (Minetti 2002)*/
-  cSlope = 155.4*Suunto.pow(slope,5) - 30.4*Suunto.pow(slope,4) - 43.3*Suunto.pow(slope,3) + 46.3*Suunto.pow(slope,2) + 19.5*slope + 3.6;
+  /*cSlope = 155.4*Suunto.pow(slope,5) - 30.4*Suunto.pow(slope,4) - 43.3*Suunto.pow(slope,3) + 46.3*Suunto.pow(slope,2) + 19.5*slope + 3.6;*/
+  cSlope = ((((155.4*slope-30.4)*slope-43.3)*slope+46.3)*slope+19.5)*slope + 3.6;
 
   /* Efficiency (Skiba's govss.pdf and spreadsheet)*/
-  eff = (0.25 + 0.054*speed)*(1 - 0.5*speed/8.33);
+  /* eff = (0.25 + 0.054*speed)*(1 - 0.5*speed/8.33);*/
+  eff = (-0.0032413*speed+0.038994)*speed+0.25;
 
-  power=(cAero + cKin + cSlope*eff*SUUNTO_USER_WEIGHT)*speed;
+  power = (cAero + cKin + cSlope*eff*SUUNTO_USER_WEIGHT)*speed;
+  if(power <0)
+  {
+    power =0;
+  }
+  RESULT=power;
 }
-
-RESULT = power;
