@@ -1,13 +1,42 @@
 /* While in sport mode do this once per second */
+
+/*vertical speed calculation*/
+/* update every 5s */
+if (Suunto.mod(SUUNTO_DURATION,5)==0 ) {
+
+alt_current = SUUNTO_ALTI_AVG[30];
+
+alt_previous = alt_minus06;
+
+/*Avg Vertical Speed in m/min */
+verticalSpeed=(alt_current-alt_previous )/30*60;
+
+alt_minus06=alt_minus05;
+alt_minus05=alt_minus04;
+alt_minus04=alt_minus03;
+alt_minus03=alt_minus02;
+alt_minus02=alt_minus01;
+alt_minus01=alt_current;
+}
+/* no update */
+else {
+verticalSpeed=(alt_current-alt_previous )/30*60;
+}
+
+/* speed calculation */
 speed = SUUNTO_SPEED/3.6;
+
+/* slope calculation */
 if(SUUNTO_SPEED < 1)
 {
   slope = 0.0;
 }
 else 
 {
-  slope = 0.06*SUUNTO_VERTICAL_SPD / SUUNTO_SPEED;
+  slope = 0.06*verticalSpeed / SUUNTO_SPEED;
 }
+
+/* substitute all data in power equation */
 
 /*Aero contribution (Arsac 2001): 0.5 * rho * Cd * Af * V^2, rho = 1.2, Cd = 0.9*/
 Af = (0.2025*Suunto.pow(SUUNTO_USER_HEIGHT/100, 0.725)*Suunto.pow(SUUNTO_USER_WEIGHT, 0.425))*0.266; /* Frontal Area*/
