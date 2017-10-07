@@ -2,55 +2,22 @@
 /*before start: configure parameters, initialize*/
 if(SUUNTO_DURATION<1)
 {
-  T=0;
-  x0p=SUUNTO_ALTI;
-  x0=SUUNTO_ALTI;
-  x1=0;
-  x2=0;
-  k0=0;
-  k1=0;
-  k2=0;
-  err=0;
-  omega=0.02;
-  slope=0;
   initialSpeed = SUUNTO_SPEED/3.6; 
-  dist1=0;
   RESULT=0;
-  
-
 }
 else 
 {
 
-  /* slope calculation only if new distance data */
-  T=1000*SUUNTO_DISTANCE-dist1;
-  if(T > 0)
+  /* slope */
+  speed = SUUNTO_SPEED/3.6;
+  if(SUUNTO_SPEED < 1)
   {
-    /*keep distance data for next iteration*/
-    dist1=1000*SUUNTO_DISTANCE;
-  
-    /*abg filter http://www.plctalk.net/qanda/showthread.php?t=67883 http://deltamotion.com/peter/pdf/AlphaBetaGammaCode.pdf */
-    /*gains: MINIMUM IAE*/
-    k0=2.089582*T*omega;
-    k1=1.479222*T*Suunto.pow(omega, 2);
-    k2=T*Suunto.pow(omega, 3);
-  
-    /*calculate estimated position*/
-    x0p=(((0.5*x2*T)*T+x1)*T+x0);
-  
-    /*calculate error between actual and estimated*/
-    err=SUUNTO_ALTI-x0p;
-  
-    /*update position, velocity and acceleration*/
-    x0=x0p+k0*err;
-    x1=x1+(x2*T+k1*err);
-    x2=x2+k2*err;
-
-    /*slope is derivative of altitude with respect to distance*/
-    slope=x1;
-
+  slope = 0.0;
   }
-
+  else 
+  {
+    slope = 0.06 * SUUNTO_VERTICAL_SPD / SUUNTO_SPEED;
+  }
 
   /* 2D speed */
   speed = SUUNTO_SPEED/3.6;
