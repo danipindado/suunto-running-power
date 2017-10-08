@@ -25,11 +25,11 @@ else
   /* 3D speed */
   speed = speed/Suunto.cos(Suunto.atan2(slope,1));
 
-  /*Aero contribution (Arsac 2001): 0.5 * rho * Cd * Af * V^2, rho = 1.2, Cd = 0.9*/
+  /* Aero contribution per kg (Arsac 2001): 0.5 * rho * Cd * Af * V^2 / M, rho = 1.2, Cd = 0.9 */
   Af = (0.2025*Suunto.pow(SUUNTO_USER_HEIGHT/100, 0.725)*Suunto.pow(SUUNTO_USER_WEIGHT, 0.425))*0.266; /* Frontal Area*/
-  cAero = 0.5*1.2*0.9*Af*Suunto.pow(speed, 2);
+  cAero = 0.5*1.2*0.9*Af*Suunto.pow(speed, 2) / SUUNTO_USER_WEIGHT;
 
-  /* Kinetic Energy contribution (Arsac 2001): 0.5 * (V^2-V0^2) / d*/
+  /* Kinetic Energy contribution per kg (Arsac 2001): 0.5 * (V^2-V0^2) / d*/
   if(SUUNTO_DISTANCE >0)
   {
     cKin = 0.5*(Suunto.pow(speed,2)-Suunto.pow(initialSpeed,2))/(1000*SUUNTO_DISTANCE);
@@ -48,10 +48,11 @@ else
   /* eff = (0.25 + 0.054*speed)*(1 - 0.5*speed/8.33);*/
   eff = (-0.0032413*speed+0.038994)*speed+0.25;
 
-  power = (cAero + cKin + cSlope*eff*SUUNTO_USER_WEIGHT)*speed;
+  power = (cAero + cKin + cSlope*eff)*speed*SUUNTO_USER_WEIGHT;
   if(power <0)
   {
     power =0;
   }
+  initialSpeed = speed;
   RESULT=power;
 }
